@@ -2,7 +2,7 @@ use std::{num::NonZeroUsize, ops::Deref};
 
 use crate::{
     Chain, Cloned, Enumerate, Filter, FilterMap, Map, OptionTrait, SingleArgFnMut, SingleArgFnOnce,
-    Skip, StepBy, Take, Zip, TakeWhile,
+    Skip, StepBy, Take, TakeWhile, Zip,
 };
 
 /// Like [`Iterator`], but items may borrow from `&mut self`.
@@ -36,6 +36,20 @@ pub trait LendingIterator {
         Self: Sized,
     {
         self.fold(0, |count, _| count + 1)
+    }
+
+    /// Consumes the lending iterator, returning the last element
+    /// if it can be reasonably determined from the `size_hint` upper bound.
+    ///
+    /// Relies on [`size_hint`](LendingIterator::size_hint) upper bound to determine the number of elements to skip.
+    ///
+    /// See [`Iterator::last`].
+    #[inline]
+    fn last(&mut self) -> Option<Self::Item<'_>> {
+        match self.size_hint().1 {
+            Some(n) => self.nth(n.saturating_sub(1)),
+            None => None,
+        }
     }
 
     /// Advances the lending iterator by `n` elements.
@@ -91,7 +105,7 @@ pub trait LendingIterator {
     fn take_while<P>(self, predicate: P) -> TakeWhile<Self, P>
     where
         Self: Sized,
-        P: for <'a> FnMut(&Self::Item<'a>) -> bool
+        P: for<'a> FnMut(&Self::Item<'a>) -> bool,
     {
         TakeWhile::new(self, predicate)
     }
